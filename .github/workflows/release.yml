@@ -42,5 +42,4 @@ jobs:
       - name: Publish to NPM
         uses: JS-DevTools/npm-publish@v1
         with:
-          check-version: false
           token: ${{ secrets.NPM_TOKEN }}

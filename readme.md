@@ -46,3 +46,5 @@ const { VAR_NAME } = process.env
 ```
 
 You can mix and match these three ways of using environment variables across your project.
+
+Note that, the plugin is only really useful when you used the scoped environment variables feature. If you do not, all variables from the UI are anyways published to AWS Lambda, thus rendering this plugin useless.
