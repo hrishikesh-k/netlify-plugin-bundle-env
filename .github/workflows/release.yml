@@ -1,0 +1,46 @@
+name: "Release"
+on:
+  push:
+    branches:
+      - main
+jobs:
+  analyze:
+    name: Analyse, Build, Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      security-events: write
+    strategy:
+      matrix:
+        language: ["javascript"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: ${{ matrix.language }}
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - name: Install dependencies
+        run: npm i
+      - name: Build project
+        run: npm run build
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        name: GitHub release
+        uses: CupOfTea696/gh-action-auto-release@v1
+        with:
+          changelog: changelog.md
+          title: v$semver
+      - name: Publish to NPM
+        uses: JS-DevTools/npm-publish@v1
+        with:
+          check-version: false
+          token: ${{ secrets.NPM_TOKEN }}

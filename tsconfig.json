@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "allowJs": false,
+    "allowUmdGlobalAccess": false,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "esModuleInterop": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "lib": ["ESNext"],
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "strict": true,
+    "declaration": true,
+    "importsNotUsedAsValues": "error",
+    "noEmitOnError": true,
+    "outDir": "./dist/",
+    "removeComments": true,
+    "skipLibCheck": true,
+    "target": "ESNext"
+  },
+  "include": ["./src/index.ts"]
+}
