@@ -1,4 +1,4 @@
-// noinspection AnonymousFunctionJS, ChainedFunctionCallJS, ConstantOnRightSideOfComparisonJS, FunctionTooLongJS, FunctionWithMoreThanThreeNegationsJS, FunctionWithMultipleLoopsJS, FunctionWithMultipleReturnPointsJS, IfStatementWithTooManyBranchesJS, JSUnusedGlobalSymbols, OverlyNestedFunctionJS, NestedFunctionCallJS, NestedFunctionJS
+// noinspection AnonymousFunctionJS, ChainedFunctionCallJS, ConstantOnRightSideOfComparisonJS, FunctionTooLongJS, FunctionWithMoreThanThreeNegationsJS, FunctionWithMultipleLoopsJS, FunctionWithMultipleReturnPointsJS, IfStatementWithTooManyBranchesJS, JSUnusedGlobalSymbols, MagicNumberJS, NestedFunctionCallJS, NestedFunctionJS, OverlyNestedFunctionJS
 
 import type { NetlifyPluginOptions} from '@netlify/build'
 import {cwd} from 'process'
@@ -65,10 +65,6 @@ export function onPreBuild(plugin : NetlifyPluginOptions) {
       } else if (extension.startsWith('.')) {
         console.warn(`${extension} should not start with ".". The plugin will remove the "." and continue processing.`)
         extensionsToProcess[extensionIndex] = extension.slice(1)
-      } else if (extension.length < 2) {
-        plugin.utils.build.failPlugin(`${extension} is too short. Most valid extensions supposed to be processed by this plugin are 2 to 4 characters long.`)
-      } else if (extension.length > 4) {
-        plugin.utils.build.failPlugin(`${extension} is too long. Most valid extensions supposed to be processed by this plugin are 2 to 4 characters long.`)
       }
     })
     includedEnvs.forEach(includedEnv => {
@@ -125,9 +121,9 @@ export function onPreBuild(plugin : NetlifyPluginOptions) {
                 normalMatches.forEach(match => {
                   let varName = match[0]
                   if (varName.startsWith('process.env.')) {
-                    varName = varName.replace('process.env.', '')
+                    varName = varName.slice(12)
                   } else if (varName.startsWith('process.env[')) {
-                    varName = varName.replace('process.env[', '').replace(']', '').slice(1, -1)
+                    varName = varName.slice(13, -2)
                   }
                   if (processVariable(varName)) {
                     const value = process.env[varName]

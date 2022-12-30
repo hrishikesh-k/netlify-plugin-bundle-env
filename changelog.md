@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.1
+### Changed
+- Removed extension length checks.
+- Fixed CodeQL security alerts.
+
 ## v0.2.0
 ### Changed
 - Added configurable options:

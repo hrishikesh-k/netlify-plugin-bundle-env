@@ -24,7 +24,7 @@ and run `npm i netlify-plugin-bundle-env` to make sure the plugin is added as a 
 ```json
 {
   "dependencies": {
-    "netlify-plugin-bundle-env": "0.2.0"
+    "netlify-plugin-bundle-env": "0.2.1"
   }
 }
 ```
