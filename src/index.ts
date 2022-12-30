@@ -1,112 +1,174 @@
-import type {NetlifyPlugin} from '@netlify/build'
+// noinspection AnonymousFunctionJS, ChainedFunctionCallJS, ConstantOnRightSideOfComparisonJS, FunctionTooLongJS, FunctionWithMoreThanThreeNegationsJS, FunctionWithMultipleLoopsJS, FunctionWithMultipleReturnPointsJS, IfStatementWithTooManyBranchesJS, JSUnusedGlobalSymbols, OverlyNestedFunctionJS, NestedFunctionCallJS, NestedFunctionJS
+
+import type { NetlifyPluginOptions} from '@netlify/build'
 import {cwd} from 'process'
-import {lstatSync, readdirSync, readFileSync, writeFileSync, unlinkSync} from 'fs'
+import {lstatSync, readdirSync, readFileSync, writeFileSync, unlinkSync, existsSync} from 'fs'
 import {extname, resolve} from 'path'
-// noinspection AnonymousFunctionJS, JSUnusedGlobalSymbols, OverlyNestedFunctionJS,ConstantOnRightSideOfComparisonJS
-export default function() : NetlifyPlugin {
-  let countFile = 0
-  let functionsDir = ''
+export function onEnd(plugin : NetlifyPluginOptions) {
+  const directoriesToProcess = plugin.inputs['directories'] as Array<string>
+  if (directoriesToProcess.length === 0) {
+    directoriesToProcess.push(plugin.constants.FUNCTIONS_SRC as string)
+  }
+  directoriesToProcess.forEach(directory => {
+    function recursiveProcess(path : string) {
+      readdirSync(path).forEach(newPath => {
+        const resolvedPath = resolve(path, newPath)
+        if (lstatSync(resolvedPath).isDirectory()) {
+          recursiveProcess(resolvedPath)
+        } else {
+          if (extname(resolvedPath) === '.bak') {
+            const originalName = resolvedPath.slice(0, -4)
+            writeFileSync(originalName, readFileSync(resolvedPath, 'utf-8'))
+            unlinkSync(resolvedPath)
+            console.log(`${originalName} successfully processed and restored.`)
+          }
+        }
+      })
+    }
+    recursiveProcess(directory)
+  })
+}
+export function onPreBuild(plugin : NetlifyPluginOptions) {
+  const directoriesToProcess = plugin.inputs['directories']
+  const excludedEnvs = plugin.inputs['exclude']
+  const extensionsToProcess = plugin.inputs['extensions']
+  const includedEnvs = plugin.inputs['include']
+  const maskValues = plugin.inputs['mask']
   const output = new Map<string, Map<string, string | undefined>>()
   const processedVars : Array<string> = []
-  // noinspection NestedFunctionCallJS
   const workingDir = resolve(cwd())
-  // noinspection FunctionWithMultipleLoopsJS, OverlyNestedFunctionJS
-  return {
-    onEnd: () => {
-      // noinspection NestedFunctionJS
-      function recursiveProcess(path : string) {
-        // noinspection AnonymousFunctionJS, ChainedFunctionCallJS
-        readdirSync(path).forEach(newPath => {
-          const resolvedPath = resolve(path, newPath)
-          // noinspection ChainedFunctionCallJS
-          if (lstatSync(resolvedPath).isDirectory()) {
-            recursiveProcess(resolvedPath)
-          } else {
-            // noinspection ConstantOnRightSideOfComparisonJS
-            if (extname(resolvedPath) === '.bak') {
-              const originalName = resolvedPath.slice(0, -4)
-              // noinspection NestedFunctionCallJS
-              writeFileSync(originalName, readFileSync(resolvedPath, 'utf-8'))
-              unlinkSync(resolvedPath)
-              console.log(`File ${originalName} successfully processed and restored.`)
-            }
-          }
-        })
+  let countFile = 0
+  if (!Array.isArray(directoriesToProcess)) {
+    plugin.utils.build.failPlugin('Plugin\'s option "directories" must be an array.')
+  } else if (!Array.isArray(excludedEnvs)) {
+    plugin.utils.build.failPlugin('Plugin\'s option "exclude" must be an array.')
+  } else if (!Array.isArray(extensionsToProcess)) {
+    plugin.utils.build.failPlugin('Plugin\'s option "extensions" must be an array.')
+  } else if (!Array.isArray(includedEnvs)) {
+    plugin.utils.build.failPlugin('Plugin\'s option "include" must be an array.')
+  } else if (typeof maskValues !== 'boolean') {
+    plugin.utils.build.failPlugin('Plugin\'s option "mask" must be a boolean.')
+  } else {
+    directoriesToProcess.forEach(directory => {
+      if (typeof directory !== 'string') {
+        plugin.utils.build.failPlugin(`Plugin's option "directories" must be an array of strings. ${directory} is not a string.`)
       }
-      recursiveProcess(functionsDir)
-    },
-    onPreBuild: plugin => {
+    })
+    excludedEnvs.forEach(excludedEnv => {
+      if (typeof excludedEnv !== 'string') {
+        plugin.utils.build.failPlugin(`Plugin's option "exclude" must be an array of strings. ${excludedEnv} is not a string.`)
+      }
+    })
+    extensionsToProcess.forEach((extension, extensionIndex) => {
+      if (typeof extension !== 'string') {
+        plugin.utils.build.failPlugin(`Plugin's option "extensions" must be an array of strings. ${extension} is not a string.`)
+      } else if (extension.startsWith('.')) {
+        console.warn(`${extension} should not start with ".". The plugin will remove the "." and continue processing.`)
+        extensionsToProcess[extensionIndex] = extension.slice(1)
+      } else if (extension.length < 2) {
+        plugin.utils.build.failPlugin(`${extension} is too short. Most valid extensions supposed to be processed by this plugin are 2 to 4 characters long.`)
+      } else if (extension.length > 4) {
+        plugin.utils.build.failPlugin(`${extension} is too long. Most valid extensions supposed to be processed by this plugin are 2 to 4 characters long.`)
+      }
+    })
+    includedEnvs.forEach(includedEnv => {
+      if (typeof includedEnv !== 'string') {
+        plugin.utils.build.failPlugin(`Plugin's option "include" must be an array of strings. ${includedEnv} is not a string.`)
+      }
+    })
+    excludedEnvs.forEach(excludedEnv => {
+      // @ts-ignore
+      if (includedEnvs.includes(excludedEnv)) {
+        console.warn(`${excludedEnv} exists in include as well as exclude list. This is not supported and can produce unexpected results.`)
+      }
+    })
+    if (directoriesToProcess.length === 0) {
       if (plugin.constants.FUNCTIONS_SRC) {
-        // noinspection ReuseOfLocalVariableJS
-        functionsDir = resolve(workingDir, plugin.constants.FUNCTIONS_SRC)
-        // noinspection FunctionWithMultipleLoopsJS, NestedFunctionJS
+        directoriesToProcess.push(plugin.constants.FUNCTIONS_SRC)
+      } else {
+        plugin.utils.build.failPlugin('No source directory is specified.')
+      }
+    }
+    directoriesToProcess.forEach(directory => {
+      const resolvedPath = resolve(workingDir, directory as string)
+      if (existsSync(resolvedPath)) {
         function recursiveProcess(path : string) {
-          // noinspection AnonymousFunctionJS, ChainedFunctionCallJS, FunctionWithMultipleLoopsJS
           readdirSync(path).forEach(newPath => {
             const resolvedPath = resolve(path, newPath)
-            // noinspection ChainedFunctionCallJS
             if (lstatSync(resolvedPath).isDirectory()) {
               recursiveProcess(resolvedPath)
             } else {
-              // noinspection ConstantOnRightSideOfComparisonJS
-              if (extname(resolvedPath) === '.js' || extname(resolvedPath) === '.ts') {
+              // @ts-ignore
+              if (extensionsToProcess.includes(extname(resolvedPath).slice(1))) {
+                function processVariable(varName : string) : boolean {
+                  // @ts-ignore
+                  if (excludedEnvs.includes(varName)) {
+                    console.warn(`${varName} will not be replaced because it is in the exclude list.`)
+                    return false
+                  } else {
+                    // @ts-ignore
+                    if (includedEnvs.length > 0 && !includedEnvs.includes(varName)) {
+                      console.warn(`${varName} will not be replaced because it is in not in the include list.`)
+                      return false
+                    } else {
+                      return true
+                    }
+                  }
+                }
                 const originalCode = readFileSync(resolvedPath, 'utf-8')
                 let code = originalCode
-                // noinspection NestedFunctionCallJS
                 const normalMatches = Array.from(code.matchAll(/process\.env\['([\w-]+)']|process\.env.([\w-]+)/g))
-                // noinspection ConstantOnRightSideOfComparisonJS
                 if (normalMatches.length > 0) {
                   countFile++
-                  // noinspection NestedFunctionCallJS
                   output.set(resolvedPath, new Map<string, string | undefined>())
                 }
-                // noinspection AnonymousFunctionJS
                 normalMatches.forEach(match => {
-                  // noinspection DynamicallyGeneratedCodeJS
-                  const value = eval(match[0])
-                  if (value) {
-                    // noinspection NestedFunctionCallJS
-                    code = code.replaceAll(match[0], `'${value.replaceAll('\'', '\\\'')}'`)
-                  } else {
-                    code = code.replaceAll(match[0], value)
+                  let varName = match[0]
+                  if (varName.startsWith('process.env.')) {
+                    varName = varName.replace('process.env.', '')
+                  } else if (varName.startsWith('process.env[')) {
+                    varName = varName.replace('process.env[', '').replace(']', '').slice(1, -1)
                   }
-                  if (!output.get(resolvedPath)!.has(match[0])) {
-                    const varName = match[0].replace('process.env.', '')
-                    if (!processedVars.includes(varName)) {
-                      processedVars.push(varName)
+                  if (processVariable(varName)) {
+                    const value = process.env[varName]
+                    if (value) {
+                      code = code.replaceAll(match[0], `'${value.replaceAll('\'', '\\\'')}'`)
+                    } else {
+                      code = code.replaceAll(match[0], `${`'${value}'`.slice(1, -1)}`)
                     }
-                    output.get(resolvedPath)!.set(match[0], value)
+                    if (!output.get(resolvedPath)!.has(match[0])) {
+                      if (!processedVars.includes(varName)) {
+                        processedVars.push(varName)
+                      }
+                      output.get(resolvedPath)!.set(match[0], value)
+                    }
                   }
                 })
                 const destructuredFinder = /(const|let|var)\s*{((.|\n)*)\s*=\s*process\.env/g
-                // noinspection NestedFunctionCallJS
                 const destructuredMatches = Array.from(code.matchAll(destructuredFinder))
-                // noinspection ConstantOnRightSideOfComparisonJS
                 if (destructuredMatches.length > 0 && !output.has(resolvedPath)) {
                   countFile++
-                  // noinspection NestedFunctionCallJS
                   output.set(resolvedPath, new Map<string, string | undefined>())
                 }
-                // noinspection AnonymousFunctionJS
                 destructuredMatches.forEach(match => {
                   let codeToReplace = ''
-                  // noinspection AnonymousFunctionJS, ChainedFunctionCallJS
                   match[0].replace(/^[^{]*/, '').slice(1).replace(/\s*}.*/, '').split(',').map(variable => {
                     return variable.trim()
                   }).forEach(trimmedVariable => {
-                    // noinspection ConstantOnRightSideOfComparisonJS
                     if (trimmedVariable.length > 0) {
-                      const value = process.env[trimmedVariable]
-                      if (value) {
-                        codeToReplace += `const ${trimmedVariable} = '${value.replaceAll('\'', '\\\'')}';\n`
-                      } else {
-                        codeToReplace += `const ${trimmedVariable} = ${value};\n`
-                      }
-                      if (!output.get(resolvedPath)!.has(trimmedVariable)) {
-                        if (!processedVars.includes(trimmedVariable)) {
-                          processedVars.push(trimmedVariable)
+                      if (processVariable(trimmedVariable)) {
+                        const value = process.env[trimmedVariable]
+                        if (value) {
+                          codeToReplace += `const ${trimmedVariable} = '${value.replaceAll('\'', '\\\'')}';\n`
+                        } else {
+                          codeToReplace += `const ${trimmedVariable} = ${value};\n`
                         }
-                        output.get(resolvedPath)!.set(`{${trimmedVariable}}`, value)
+                        if (!output.get(resolvedPath)!.has(trimmedVariable)) {
+                          if (!processedVars.includes(trimmedVariable)) {
+                            processedVars.push(trimmedVariable)
+                          }
+                          output.get(resolvedPath)!.set(`{${trimmedVariable}}`, value)
+                        }
                       }
                     }
                   })
@@ -114,36 +176,34 @@ export default function() : NetlifyPlugin {
                 })
                 writeFileSync(resolvedPath, code)
                 writeFileSync(`${resolvedPath}.bak`, originalCode)
+              } else {
+                console.log(`Skipping ${resolvedPath} because its extension is not listed in plugin's "extensions" options.`)
               }
             }
           })
         }
-        recursiveProcess(functionsDir)
-        // noinspection AnonymousFunctionJS
-        output.forEach((renderedKeys, path) => {
-          console.log(`${path} processed:\n`)
-          // noinspection AnonymousFunctionJS
-          renderedKeys.forEach((renderedValue, keyName) => {
-            if (renderedValue) {
-              // noinspection ConstantOnRightSideOfComparisonJS
-              if (renderedValue.length > 5) {
-                // noinspection NestedFunctionCallJS
-                console.log(`  ${keyName}: ${renderedValue.slice(0, 5)}*****\n`)
-              } else {
-                console.log(`  ${keyName}: ${renderedValue}\n`)
-              }
-            } else {
-              console.warn(`  ${keyName}: ${renderedValue}\n`)
-            }
-          })
-        })
-        plugin.utils.status.show({
-          summary: `Successfully processed ${countFile} file(s) containing ${processedVars.length} variable(s)`,
-          title: 'Netlify Plugin Bundle ENV'
-        })
+        recursiveProcess(resolvedPath)
       } else {
-        plugin.utils.build.failPlugin('Functions directory is not defined')
+        plugin.utils.build.failPlugin(`${directory} is not a valid directory name or the provided path does not exist.`)
       }
-    }
+    })
   }
+  output.forEach((renderedKeys, path) => {
+    console.log(`${path} processed:`)
+    renderedKeys.forEach((renderedValue, keyName) => {
+      if (renderedValue) {
+        if (renderedValue.length > 5 && maskValues) {
+          console.log(`  ${keyName}: '${renderedValue.slice(0, 5)}*****'`)
+        } else {
+          console.log(`  ${keyName}: '${renderedValue}'`)
+        }
+      } else {
+        console.warn(`  ${keyName}: ${renderedValue}`)
+      }
+    })
+  })
+  plugin.utils.status.show({
+    summary: `Successfully processed ${countFile} file(s) containing ${processedVars.length} variable(s)`,
+    title: 'Netlify Plugin Bundle ENV'
+  })
 }

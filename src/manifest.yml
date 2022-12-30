@@ -1,1 +1,22 @@
+inputs:
+  - default: []
+    description: List of directories to process (relative to base directory)
+    name: directories
+    required: false
+  - default: []
+    description: List of variables to not process
+    name: exclude
+    required: false
+  - default: ["js", "ts"]
+    description: List of extensions to process
+    name: extensions
+    required: false
+  - default: []
+    description: List of variables to process
+    name: include
+    required: false
+  - default: true
+    description: Toggles visibility of environment variables' value in build logs
+    name: mask
+    required: false
 name: netlify-plugin-bundle-env
