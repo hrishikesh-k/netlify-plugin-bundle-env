@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.2.2
+### Changed
+- Fixed missing support for `process.env["var"]` syntax. Previously, only single quotes around the variable name were supported.
+
 ## v0.2.1
 ### Changed
 - Removed extension length checks.

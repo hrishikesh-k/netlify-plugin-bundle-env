@@ -113,7 +113,7 @@ export function onPreBuild(plugin : NetlifyPluginOptions) {
                 }
                 const originalCode = readFileSync(resolvedPath, 'utf-8')
                 let code = originalCode
-                const normalMatches = Array.from(code.matchAll(/process\.env\['([\w-]+)']|process\.env.([\w-]+)/g))
+                const normalMatches = Array.from(code.matchAll(/process\.env\['([\w-]+)']|process\.env\["([\w-]+)"]|process\.env.([\w-]+)/g))
                 if (normalMatches.length > 0) {
                   countFile++
                   output.set(resolvedPath, new Map<string, string | undefined>())
