@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.3.0
+### Changed
+- Added configuration option: `backup-dir`. Refer to readme to know how to use it.
+
 ## v0.2.2
 ### Changed
 - Fixed missing support for `process.env["var"]` syntax. Previously, only single quotes around the variable name were supported.

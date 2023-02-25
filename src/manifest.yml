@@ -1,4 +1,8 @@
 inputs:
+  - default: ''
+    description: Directory to backup the original functions in (relative to base directory)
+    name: backup-dir
+    required: false
   - default: []
     description: List of directories to process (relative to base directory)
     name: directories

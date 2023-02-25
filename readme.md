@@ -24,7 +24,7 @@ and run `npm i netlify-plugin-bundle-env` to make sure the plugin is added as a 
 ```json
 {
   "dependencies": {
-    "netlify-plugin-bundle-env": "0.2.2"
+    "netlify-plugin-bundle-env": "0.3.0"
   }
 }
 ```
@@ -61,21 +61,23 @@ When building locally, the plugin takes care of restoring the original files aft
 
 The plugin can be used in plug-n-play mode without any additional configuration. However, there are a few options that you can use to customise the plugin's default behaviour:
 
-| Name        | Type          | Description                                                      | Required | Default         |
-|-------------|---------------|------------------------------------------------------------------|----------|-----------------|
-| directories | Array<string> | List of directories to process (relative to base directory)      | No       | [FUNCTIONS_SRC] |
-| exclude     | Array<string> | List of variables to not process                                 | No       | []              |
-| extensions  | Array<string> | List of extensions to process                                    | No       | ["js", "ts"]    |
-| include     | Array<string> | List of variables to process                                     | No       | []              |
-| mask        | boolean       | Toggles visibility of environment variables' value in build logs | No       | true            |
+| Name        | Type          | Description                                                                | Required | Default         |
+|-------------|---------------|----------------------------------------------------------------------------|----------|-----------------|
+| backup-dir  | string        | Directory to backup the original functions in (relative to base directory) | No       | ''              |
+| directories | Array<string> | List of directories to process (relative to base directory)                | No       | [FUNCTIONS_SRC] |
+| exclude     | Array<string> | List of variables to not process                                           | No       | []              |
+| extensions  | Array<string> | List of extensions to process                                              | No       | ["js", "ts"]    |
+| include     | Array<string> | List of variables to process                                               | No       | []              |
+| mask        | boolean       | Toggles visibility of environment variables' value in build logs           | No       | true            |
 
 Note:
 
+1. `backup-dir` when set to `''` (default) backs up the original functions alongside the actual function file. The file is saved as `<file-name>.<ext>.bak`. You might need to override this in case you are including all files from your functions folder and bundling these `.bak` files is causing some issues. The directory, if specified, is created for you. Note that, this directory is deleted after processing, so it's better to use a directory which is not required by your application otherwise.
 1. `directories` should only include the "start" directory. Any sub-directories will be automatically included. Thus, glob patterns are not supported. If you provide a directory here, it will override the default directories. So, to include the default directories, you need to add those to the array too. Unlike `exclude` and `include`, an empty array for this will automatically use the functions' directory of the site.
-2. Both `exclude` and `include` should contain only the name of the variable. For example, if you wish to add `process.env.VAR_1` in the list, you should only add `VAR_1` (case-sensitive).
-3. If `exclude` is specified, all variables excluding those in the list will be replaced. If `include` is specified, only the variables included in that list will be replaced. Using `exclude` and `include` together is not supported and can cause unexpected results.
-4. `extensions` should be specified without the dot (`.`). For example, if you wish to process `file.jsx`, you should only add `jsx` (case-sensitive). If you provide an extension here, it will override the default extensions. So, to include the default extensions, you need to add those to the array too.
-5. `mask` option should not be toggled unless you're absolutely sure. It will print the values of the environment variables that were processed directly in your build logs. However, variable values with less than 5 characters in length will always be logged.
+1. Both `exclude` and `include` should contain only the name of the variable. For example, if you wish to add `process.env.VAR_1` in the list, you should only add `VAR_1` (case-sensitive).
+1. If `exclude` is specified, all variables excluding those in the list will be replaced. If `include` is specified, only the variables included in that list will be replaced. Using `exclude` and `include` together is not supported and can cause unexpected results.
+1. `extensions` should be specified without the dot (`.`). For example, if you wish to process `file.jsx`, you should only add `jsx` (case-sensitive). If you provide an extension here, it will override the default extensions. So, to include the default extensions, you need to add those to the array too.
+1. `mask` option should not be toggled unless you're absolutely sure. It will print the values of the environment variables that were processed directly in your build logs. However, variable values with less than 5 characters in length will always be logged.
 
 The options can be configured only in `netlify.toml` as follows:
 
@@ -83,6 +85,7 @@ The options can be configured only in `netlify.toml` as follows:
 [[plugins]]
   package = "netlify-plugin-bundle-env"
   [plugins.inputs]
+    backup-dir = ""
     directories = []
     exclude = []
     extensions = ["js", "ts"]
