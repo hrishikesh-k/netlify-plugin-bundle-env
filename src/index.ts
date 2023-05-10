@@ -1,10 +1,10 @@
 // noinspection AnonymousFunctionJS, ChainedFunctionCallJS, ConstantOnRightSideOfComparisonJS, FunctionTooLongJS, FunctionWithMoreThanThreeNegationsJS, FunctionWithMultipleLoopsJS, FunctionWithMultipleReturnPointsJS, IfStatementWithTooManyBranchesJS, JSUnusedGlobalSymbols, MagicNumberJS, NestedFunctionCallJS, NestedFunctionJS, OverlyNestedFunctionJS
 
-import type {NetlifyPlugin, NetlifyPluginOptions} from '@netlify/build'
+import {basename, extname, resolve} from 'path'
 import chalk from 'chalk'
 import {cwd} from 'process'
 import {copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync} from 'fs'
-import {basename, extname, resolve} from 'path'
+import type {NetlifyPlugin, NetlifyPluginOptions} from '@netlify/build'
 export default function bundleEnv(inputs : NetlifyPluginOptions['inputs']) : NetlifyPlugin {
   const backupDir = inputs['backup-dir']
   const directoriesToProcess = inputs['directories']

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.3.1
+### Updated
+- TypeScript to v5 from v4
+
 ## v0.3.0
 ### Changed
 - Added configuration option: `backup-dir`. Refer to readme to know how to use it.
