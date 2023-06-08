@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.3.2
+### Fixed
+- Replaced `unlinkSync` with `rmSync` for consistency.
+
 ## v0.3.1
 ### Updated
 - TypeScript to v5 from v4

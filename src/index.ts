@@ -2,8 +2,8 @@
 
 import {basename, extname, resolve} from 'path'
 import chalk from 'chalk'
+import {copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'fs'
 import {cwd} from 'process'
-import {copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync} from 'fs'
 import type {NetlifyPlugin, NetlifyPluginOptions} from '@netlify/build'
 export default function bundleEnv(inputs : NetlifyPluginOptions['inputs']) : NetlifyPlugin {
   const backupDir = inputs['backup-dir']
@@ -45,7 +45,7 @@ export default function bundleEnv(inputs : NetlifyPluginOptions['inputs']) : Net
             if (extname(pathToProcess) === '.bak') {
               const originalName = pathToProcess.slice(0, -4)
               writeFileSync(originalName, readFileSync(pathToProcess, 'utf-8'))
-              unlinkSync(pathToProcess)
+              rmSync(pathToProcess)
               console.log(chalk.green(`${originalName} successfully processed and restored.`))
             }
           })
