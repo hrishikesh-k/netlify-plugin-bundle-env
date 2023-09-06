@@ -1,225 +1,178 @@
-// noinspection AnonymousFunctionJS, ChainedFunctionCallJS, ConstantOnRightSideOfComparisonJS, FunctionTooLongJS, FunctionWithMoreThanThreeNegationsJS, FunctionWithMultipleLoopsJS, FunctionWithMultipleReturnPointsJS, IfStatementWithTooManyBranchesJS, JSUnusedGlobalSymbols, MagicNumberJS, NestedFunctionCallJS, NestedFunctionJS, OverlyNestedFunctionJS
-
-import {basename, extname, resolve} from 'path'
+import {basename, extname, join} from 'node:path'
 import chalk from 'chalk'
-import {copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'fs'
-import {cwd} from 'process'
+import {copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
+import {cwd, env} from 'node:process'
 import type {NetlifyPlugin, NetlifyPluginOptions} from '@netlify/build'
-export default function bundleEnv(inputs : NetlifyPluginOptions['inputs']) : NetlifyPlugin {
-  const backupDir = inputs['backup-dir']
-  const directoriesToProcess = inputs['directories']
-  const excludedEnvs = inputs['exclude']
-  const extensionsToProcess = inputs['extensions']
-  const includedEnvs = inputs['include']
-  const maskValues = inputs['mask']
-  const output = new Map<string, Map<string, string | undefined>>()
+export default function bundleEnv(inputs : NetlifyPluginOptions<{
+  'backup-dir' : string
+  debug : boolean
+  directories : Array<string>
+  exclude : Array<string>
+  extensions : Array<string>
+  include : Array<string>
+}>['inputs']) : NetlifyPlugin {
   const processedVars : Array<string> = []
-  const workingDir = resolve(cwd())
+  const workingDir = cwd()
   let countFile = 0
+  function logDebug(message : string) {
+    if (inputs.debug) {
+      console.log(chalk.blue(message))
+    }
+  }
+  function logSuccess(message : string) {
+    console.log(chalk.green(message))
+  }
+  function logWarn(message : string) {
+    console.log(chalk.yellow(message))
+  }
   function recursiveProcess(path : string, callback : (pathToProcess : string) => void) {
+    logDebug(`recursiveProcess: checking ${path}`)
     readdirSync(path).forEach(newPath => {
-      const resolvedPath = resolve(path, newPath)
-      if (lstatSync(resolvedPath).isDirectory()) {
-        recursiveProcess(resolvedPath, callback)
+      const absolutePath = join(path, newPath)
+      logDebug(`recursiveProcess: absolutePath: ${absolutePath}, checking if directory`)
+      if (lstatSync(absolutePath).isDirectory()) {
+        logDebug(`${absolutePath} is a directory, performing recursive call`)
+        recursiveProcess(absolutePath, callback)
       } else {
-        callback(resolvedPath)
+        logDebug(`${absolutePath} is a file, calling callback`)
+        callback(absolutePath)
       }
     })
   }
   return {
     onEnd: () => {
-      if ((backupDir as string).length > 0) {
-        const backupDirResolved = resolve(workingDir, backupDir as string)
-        recursiveProcess(backupDirResolved, (pathToProcess : string) => {
+      if (inputs['backup-dir'].length) {
+        const backupDirAbsolute = join(workingDir, inputs['backup-dir'])
+        recursiveProcess(backupDirAbsolute, pathToProcess => {
           if (extname(pathToProcess) === '.path') {
+            logDebug(`restoring backup from ${pathToProcess}`)
             copyFileSync(pathToProcess.slice(0, -5), readFileSync(pathToProcess, 'utf-8'))
           }
         })
-        rmSync(backupDirResolved, {
+        logDebug(`deleting ${backupDirAbsolute}`)
+        rmSync(backupDirAbsolute, {
           recursive: true
         })
-        console.log(chalk.green('Backup successfully processed and files have been restored.'))
+        logSuccess('Backup successfully processed and files have been restored.')
       } else {
-        (directoriesToProcess as Array<string>).forEach(directory => {
-          recursiveProcess(resolve(workingDir, directory as string), (pathToProcess : string) => {
+        inputs.directories.forEach(directory => {
+          logDebug(`processing ${directory}`)
+          recursiveProcess(join(workingDir, directory), pathToProcess => {
             if (extname(pathToProcess) === '.bak') {
+              logDebug(`restoring backup from ${pathToProcess}`)
               const originalName = pathToProcess.slice(0, -4)
               writeFileSync(originalName, readFileSync(pathToProcess, 'utf-8'))
+              logDebug(`deleting ${pathToProcess}`)
               rmSync(pathToProcess)
-              console.log(chalk.green(`${originalName} successfully processed and restored.`))
+              logSuccess(`${originalName} successfully processed and restored.`)
             }
           })
         })
       }
     },
     onPreBuild: plugin => {
-      if (typeof backupDir !== 'string') {
-        plugin.utils.build.failPlugin('Plugin\'s option "backup-dir" must be a string.')
-      } else if (!Array.isArray(directoriesToProcess)) {
-        plugin.utils.build.failPlugin('Plugin\'s option "directories" must be an array.')
-      } else if (!Array.isArray(excludedEnvs)) {
-        plugin.utils.build.failPlugin('Plugin\'s option "exclude" must be an array.')
-      } else if (!Array.isArray(extensionsToProcess)) {
-        plugin.utils.build.failPlugin('Plugin\'s option "extensions" must be an array.')
-      } else if (!Array.isArray(includedEnvs)) {
-        plugin.utils.build.failPlugin('Plugin\'s option "include" must be an array.')
-      } else if (typeof maskValues !== 'boolean') {
-        plugin.utils.build.failPlugin('Plugin\'s option "mask" must be a boolean.')
-      } else {
-        directoriesToProcess.forEach(directory => {
-          if (typeof directory !== 'string') {
-            plugin.utils.build.failPlugin(`Plugin's option "directories" must be an array of strings. ${directory} is not a string.`)
-          }
-        })
-        excludedEnvs.forEach(excludedEnv => {
-          if (typeof excludedEnv !== 'string') {
-            plugin.utils.build.failPlugin(`Plugin's option "exclude" must be an array of strings. ${excludedEnv} is not a string.`)
-          }
-        })
-        extensionsToProcess.forEach((extension, extensionIndex) => {
-          if (typeof extension !== 'string') {
-            plugin.utils.build.failPlugin(`Plugin's option "extensions" must be an array of strings. ${extension} is not a string.`)
-          } else if (extension.startsWith('.')) {
-            console.log(chalk.yellow(`${extension} should not start with ".". The plugin will remove the "." and continue processing.`))
-            extensionsToProcess[extensionIndex] = extension.slice(1)
-          }
-        })
-        includedEnvs.forEach(includedEnv => {
-          if (typeof includedEnv !== 'string') {
-            plugin.utils.build.failPlugin(`Plugin's option "include" must be an array of strings. ${includedEnv} is not a string.`)
-          }
-        })
-        excludedEnvs.forEach(excludedEnv => {
-          if (includedEnvs.includes(excludedEnv)) {
-            console.log(chalk.yellow(`${excludedEnv} exists in include as well as exclude list. This is not supported and can produce unexpected results.`))
-          }
-        })
-        if (directoriesToProcess.length === 0) {
-          if (plugin.constants.FUNCTIONS_SRC) {
-            directoriesToProcess.push(plugin.constants.FUNCTIONS_SRC)
-          } else {
-            plugin.utils.build.failPlugin('No source directory is specified.')
-          }
+      logDebug(`resolved config:\n  - backup-dir: ${inputs['backup-dir']}\n  - debug: ${inputs.debug}\n  - directories: ${inputs.directories.join(', ')}\n  - exclude: ${inputs.exclude.join(', ')}\n  - extensions: ${inputs.extensions.join(', ')}\n  - include: ${inputs.include.join(', ')}`)
+      logDebug('checking extensions')
+      inputs.extensions.forEach((extension, extensionIndex) => {
+        if (extension.startsWith('.')) {
+          logWarn(`${extension} should not start with '.'. The plugin will remove the '.' and continue processing.`)
+          inputs.extensions[extensionIndex] = extension.slice(1)
         }
-        directoriesToProcess.forEach(directory => {
-          const resolvedPath = resolve(workingDir, directory as string)
-          if (existsSync(resolvedPath)) {
-            recursiveProcess(resolvedPath, (pathToProcess : string) => {
-              if (extensionsToProcess.includes(extname(pathToProcess).slice(1))) {
-                function processVariable(varName : string) : boolean {
-                  if ((excludedEnvs as Array<string>).includes(varName)) {
-                    console.log(chalk.yellow(`${varName} will not be replaced because it is in the exclude list.`))
-                    return false
-                  } else {
-                    if ((includedEnvs as Array<string>).length > 0 && !(includedEnvs as Array<string>).includes(varName)) {
-                      console.log(chalk.yellow(`${varName} will not be replaced because it is in not in the include list.`))
-                      return false
-                    } else {
-                      return true
-                    }
-                  }
-                }
-                const originalCode = readFileSync(pathToProcess, 'utf-8')
-                let code = originalCode
-                const normalMatches = Array.from(code.matchAll(/process\.env\['([\w-]+)']|process\.env\["([\w-]+)"]|process\.env.([\w-]+)/g))
-                if (normalMatches.length > 0) {
-                  countFile++
-                  output.set(pathToProcess, new Map<string, string | undefined>())
-                }
-                normalMatches.forEach(match => {
-                  let varName = match[0]
-                  if (varName.startsWith('process.env.')) {
-                    varName = varName.slice(12)
-                  } else if (varName.startsWith('process.env[')) {
-                    varName = varName.slice(13, -2)
-                  }
-                  if (processVariable(varName)) {
-                    const value = process.env[varName]
-                    if (value) {
-                      code = code.replaceAll(match[0], `'${value.replaceAll('\'', '\\\'')}'`)
-                    } else {
-                      code = code.replaceAll(match[0], `${`'${value}'`.slice(1, -1)}`)
-                    }
-                    if (!output.get(pathToProcess)!.has(match[0])) {
-                      if (!processedVars.includes(varName)) {
-                        processedVars.push(varName)
-                      }
-                      output.get(pathToProcess)!.set(match[0], value)
-                    }
-                  }
-                })
-                const destructuredFinder = /(const|let|var)\s*{((.|\n)*)\s*=\s*process\.env/g
-                const destructuredMatches = Array.from(code.matchAll(destructuredFinder))
-                if (destructuredMatches.length > 0 && !output.has(pathToProcess)) {
-                  countFile++
-                  output.set(pathToProcess, new Map<string, string | undefined>())
-                }
-                destructuredMatches.forEach(match => {
-                  let codeToReplace = ''
-                  match[0].replace(/^[^{]*/, '').slice(1).replace(/\s*}.*/, '').split(',').map(variable => {
-                    return variable.trim()
-                  }).forEach(trimmedVariable => {
-                    if (trimmedVariable.length > 0) {
-                      if (processVariable(trimmedVariable)) {
-                        const value = process.env[trimmedVariable]
-                        if (value) {
-                          codeToReplace += `const ${trimmedVariable} = '${value.replaceAll('\'', '\\\'')}';\n`
-                        } else {
-                          codeToReplace += `const ${trimmedVariable} = ${value};\n`
-                        }
-                        if (!output.get(pathToProcess)!.has(trimmedVariable)) {
-                          if (!processedVars.includes(trimmedVariable)) {
-                            processedVars.push(trimmedVariable)
-                          }
-                          output.get(pathToProcess)!.set(`{${trimmedVariable}}`, value)
-                        }
-                      }
-                    }
-                  })
-                  code = code.replace(destructuredFinder, codeToReplace)
-                })
-                writeFileSync(pathToProcess, code)
-                if (backupDir.length > 0) {
-                  const backupDirResolved = resolve(workingDir, backupDir)
-                  if (!existsSync(backupDirResolved)) {
-                    mkdirSync(backupDirResolved, {
-                      recursive: true
-                    })
-                  }
-                  const dirInBackupDir = resolve(backupDirResolved, directory as string)
-                  if (!existsSync(dirInBackupDir)) {
-                    mkdirSync(dirInBackupDir, {
-                      recursive: true
-                    })
-                  }
-                  const fileInBackupDir = resolve(dirInBackupDir, basename(pathToProcess))
-                  writeFileSync(fileInBackupDir, originalCode)
-                  writeFileSync(`${fileInBackupDir}.path`, pathToProcess)
-                } else {
-                  writeFileSync(`${pathToProcess}.bak`, originalCode)
-                }
-              } else {
-                console.log(chalk.yellow(`Skipping ${pathToProcess} because its extension is not listed in plugin's "extensions" options.`))
-              }
-            })
-          } else {
-            plugin.utils.build.failPlugin(`${directory} is not a valid directory name or the provided path does not exist.`)
-          }
-        })
+      })
+      logDebug('checking for excluded/included conflict')
+      inputs.exclude.forEach(excludedEnv => {
+        if (inputs.include.includes(excludedEnv)) {
+          logWarn(`${excludedEnv} exists in include as well as exclude list. This is not supported and can produce unexpected results.`)
+        }
+      })
+      if (!inputs.directories.length) {
+        if (plugin.constants.FUNCTIONS_SRC) {
+          inputs.directories.push(plugin.constants.FUNCTIONS_SRC)
+        } else {
+          plugin.utils.build.failPlugin('No source directory is specified.')
+        }
       }
-      output.forEach((renderedKeys, path) => {
-        console.log(chalk.green(`${path} processed:`))
-        renderedKeys.forEach((renderedValue, keyName) => {
-          if (renderedValue) {
-            if (renderedValue.length > 5 && maskValues) {
-              console.log(`  ${keyName}: '${renderedValue.slice(0, 5)}*****'`)
+      inputs.directories.forEach(directory => {
+        logDebug(`processing: ${directory}`)
+        const absolutePath = join(workingDir, directory)
+        logDebug(`directory absolute path: ${absolutePath}, checking its existence`)
+        if (existsSync(absolutePath)) {
+          logDebug(`${absolutePath} found`)
+          recursiveProcess(absolutePath, pathToProcess => {
+            logDebug(`checking if ${pathToProcess} has an included extension`)
+            if (inputs.extensions.includes(extname(pathToProcess).slice(1))) {
+              logDebug(`${pathToProcess} has an included extension`)
+              countFile++
+              function processVariable(varName : string) {
+                logDebug(`validating if ${varName} should be processed`)
+                if (inputs.exclude.includes(varName)) {
+                  logWarn(`${varName} will not be replaced because it is in the exclude list.`)
+                  return false
+                } else if (inputs.include.length) {
+                    if (inputs.include.includes(varName)) {
+                      return true
+                    } else {
+                      logWarn(`${varName} will not be replaced because it is in not in the include list.`)
+                      return false
+                    }
+                  } else {
+                  return true
+                }
+              }
+              logDebug(`reading ${pathToProcess}`)
+              const originalCode = readFileSync(pathToProcess, 'utf-8').trim()
+              writeFileSync(pathToProcess, `${Object.keys(env).map(varName => {
+                if (processVariable(varName)) {
+                  if (!processedVars.includes(varName)) {
+                    logDebug(`adding ${varName} to processedVars`)
+                    processedVars.push(varName)
+                  }
+                  logDebug(`writing ${varName} to file`)
+                  return `process.env['${varName}'] = '${env[varName]}'`
+                } else {
+                  if (!env[varName]) {
+                    logWarn(`skipping ${varName} because its value is undefined`)
+                  }
+                  return false
+                }
+              }).filter(mappedVarName => {
+                return mappedVarName
+              }).join(';')};\n${originalCode}`)
+              if (inputs['backup-dir'].length) {
+                logDebug('backup-dir provided')
+                const backupDirResolved = join(workingDir, inputs['backup-dir'])
+                logDebug(`backupDir absolute path: ${backupDirResolved}, checking if it exists`)
+                if (!existsSync(backupDirResolved)) {
+                  logDebug('backupDir doesn\'t exist, creating it')
+                  mkdirSync(backupDirResolved, {
+                    recursive: true
+                  })
+                }
+                logDebug(`checking file-tree in backupDir`)
+                const dirInBackupDir = join(backupDirResolved, directory)
+                logDebug(`backupDir file-tree absolute path: ${dirInBackupDir}, checking if it exists`)
+                if (!existsSync(dirInBackupDir)) {
+                  logDebug(`backupDir file-tree doesn't exist, creating it`)
+                  mkdirSync(dirInBackupDir, {
+                    recursive: true
+                  })
+                }
+                const fileInBackupDir = join(dirInBackupDir, basename(pathToProcess))
+                logDebug(`writing ${pathToProcess} in backupDir at: ${fileInBackupDir}`)
+                writeFileSync(fileInBackupDir, originalCode)
+                logDebug(`writing ${fileInBackupDir}'s original path`)
+                writeFileSync(`${fileInBackupDir}.path`, pathToProcess)
+              } else {
+                logDebug('no backup-dir provided, backing up along-side original file')
+                writeFileSync(`${pathToProcess}.bak`, originalCode)
+              }
             } else {
-              console.log(`  ${keyName}: '${renderedValue}'`)
+              logWarn(`Skipping ${basename(pathToProcess)} because its extension is not listed in plugin's "extensions" options.`)
             }
-          } else {
-            console.log(chalk.yellow(`  ${keyName}: ${renderedValue}`))
-          }
-        })
+          })
+        } else {
+          plugin.utils.build.failPlugin(`${directory} does not exist.`)
+        }
       })
       plugin.utils.status.show({
         summary: `Successfully processed ${countFile} file(s) containing ${processedVars.length} variable(s)`,

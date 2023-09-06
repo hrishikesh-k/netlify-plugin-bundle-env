@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.4.0
+### Changed (breaking)
+- The working principle of the plugin has changed. Instead of using Regular Expressions, the plugin now adds all the variables directly in the file.
+- Dynamic expressions to include environment variables are now supported.
+- Added debug configuration option and removed mask option
+
+### Fixed
+- Typings
+- Replaced `path.resolve()` with `path.join()` to consistently get absolute paths.
+- Moved relevant `dependencies` to `devDependencies` as that's where they belong.
+
+### Updated
+- All dependencies without breaking changes.
+
 ## v0.3.2
 ### Fixed
 - Replaced `unlinkSync` with `rmSync` for consistency.

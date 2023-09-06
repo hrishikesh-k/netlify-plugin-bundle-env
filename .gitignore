@@ -1,7 +1,9 @@
 .DS_Store
-.idea
-.netlify
-.vscode
-dist
-node_modules
+.idea/
+.netlify/
+.vscode/
+desktop.ini
+dist/
+node_modules/
 package-lock.json
+thumbs.db
