@@ -20,6 +20,10 @@ inputs:
     name: extensions
     required: false
   - default: []
+    description: List of files to process (relative to base directory)
+    name: files
+    required: false
+  - default: []
     description: List of variables to process
     name: include
     required: false

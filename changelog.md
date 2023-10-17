@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.5.0
+### Changed
+- Added configuration option: `files`. Refer to readme to know how to use it.
+
+### Updated
+- All dependencies without breaking changes.
+
 ## v0.4.0
 ### Changed (breaking)
 - The working principle of the plugin has changed. Instead of using Regular Expressions, the plugin now adds all the variables directly in the file.

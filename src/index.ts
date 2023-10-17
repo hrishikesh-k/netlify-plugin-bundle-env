@@ -9,8 +9,10 @@ export default function bundleEnv(inputs : NetlifyPluginOptions<{
   directories : Array<string>
   exclude : Array<string>
   extensions : Array<string>
+  files : Array<string>
   include : Array<string>
 }>['inputs']) : NetlifyPlugin {
+  const filesOrDirs : Array<string> = []
   const processedVars : Array<string> = []
   const workingDir = cwd()
   let countFile = 0
@@ -27,17 +29,17 @@ export default function bundleEnv(inputs : NetlifyPluginOptions<{
   }
   function recursiveProcess(path : string, callback : (pathToProcess : string) => void) {
     logDebug(`recursiveProcess: checking ${path}`)
-    readdirSync(path).forEach(newPath => {
-      const absolutePath = join(path, newPath)
-      logDebug(`recursiveProcess: absolutePath: ${absolutePath}, checking if directory`)
-      if (lstatSync(absolutePath).isDirectory()) {
-        logDebug(`${absolutePath} is a directory, performing recursive call`)
-        recursiveProcess(absolutePath, callback)
-      } else {
-        logDebug(`${absolutePath} is a file, calling callback`)
-        callback(absolutePath)
-      }
-    })
+    if (lstatSync(path).isDirectory()) {
+      logDebug(`${path} is a directory, performing recursive call`)
+      readdirSync(path).forEach(newPath => {
+        const absolutePath = join(path, newPath)
+        logDebug(`recursiveProcess: absolutePath: ${absolutePath}, checking if directory`)
+        recursiveProcess(path, callback)
+      })
+    } else {
+      logDebug(`${path} is a file, calling callback`)
+      callback(path)
+    }
   }
   return {
     onEnd: () => {
@@ -55,10 +57,17 @@ export default function bundleEnv(inputs : NetlifyPluginOptions<{
         })
         logSuccess('Backup successfully processed and files have been restored.')
       } else {
-        inputs.directories.forEach(directory => {
-          logDebug(`processing ${directory}`)
-          recursiveProcess(join(workingDir, directory), pathToProcess => {
-            if (extname(pathToProcess) === '.bak') {
+        filesOrDirs.forEach(fileOrDirectory => {
+          logDebug(`processing ${fileOrDirectory}`)
+          recursiveProcess(join(workingDir, fileOrDirectory), pathToProcess => {
+            if (inputs.files.length && inputs.extensions.includes(extname(pathToProcess).slice(1))) {
+              const backupFile = `${pathToProcess}.bak`
+              logDebug(`restoring backup from ${backupFile}`)
+              writeFileSync(pathToProcess, readFileSync(backupFile, 'utf-8'))
+              logDebug(`deleting ${backupFile}`)
+              rmSync(backupFile)
+              logSuccess(`${pathToProcess} successfully processed and restored.`)
+            } else if (extname(pathToProcess) === '.bak') {
               logDebug(`restoring backup from ${pathToProcess}`)
               const originalName = pathToProcess.slice(0, -4)
               writeFileSync(originalName, readFileSync(pathToProcess, 'utf-8'))
@@ -71,7 +80,7 @@ export default function bundleEnv(inputs : NetlifyPluginOptions<{
       }
     },
     onPreBuild: plugin => {
-      logDebug(`resolved config:\n  - backup-dir: ${inputs['backup-dir']}\n  - debug: ${inputs.debug}\n  - directories: ${inputs.directories.join(', ')}\n  - exclude: ${inputs.exclude.join(', ')}\n  - extensions: ${inputs.extensions.join(', ')}\n  - include: ${inputs.include.join(', ')}`)
+      logDebug(`resolved config:\n  - backup-dir: ${inputs['backup-dir']}\n  - debug: ${inputs.debug}\n  - directories: ${inputs.directories.join(', ')}\n  - exclude: ${inputs.exclude.join(', ')}\n  - extensions: ${inputs.extensions.join(', ')}\n  - files: ${inputs.files.join(', ')}\n  - include: ${inputs.include.join(', ')}`)
       logDebug('checking extensions')
       inputs.extensions.forEach((extension, extensionIndex) => {
         if (extension.startsWith('.')) {
@@ -85,17 +94,29 @@ export default function bundleEnv(inputs : NetlifyPluginOptions<{
           logWarn(`${excludedEnv} exists in include as well as exclude list. This is not supported and can produce unexpected results.`)
         }
       })
-      if (!inputs.directories.length) {
+      logDebug('checking for directories/files conflict')
+      if (inputs.directories.length && inputs.files.length) {
+        logWarn('directories and files, both are provided, the former will be ignored')
+        inputs.files.forEach(file => {
+          filesOrDirs.push(file)
+        })
+      } else if (inputs.files.length) {
+        logWarn('files is provided, Netlify Functions would not be automatically processed')
+        inputs.files.forEach(file => {
+          filesOrDirs.push(file)
+        })
+      } else {
+        logDebug('directories and files not provided, adding functions src to directories')
         if (plugin.constants.FUNCTIONS_SRC) {
-          inputs.directories.push(plugin.constants.FUNCTIONS_SRC)
+          filesOrDirs.push(plugin.constants.FUNCTIONS_SRC)
         } else {
           plugin.utils.build.failPlugin('No source directory is specified.')
         }
       }
-      inputs.directories.forEach(directory => {
-        logDebug(`processing: ${directory}`)
-        const absolutePath = join(workingDir, directory)
-        logDebug(`directory absolute path: ${absolutePath}, checking its existence`)
+      filesOrDirs.forEach(fileOrDirectory => {
+        logDebug(`processing: ${fileOrDirectory}`)
+        const absolutePath = join(workingDir, fileOrDirectory)
+        logDebug(`absolute path: ${absolutePath}, checking its existence`)
         if (existsSync(absolutePath)) {
           logDebug(`${absolutePath} found`)
           recursiveProcess(absolutePath, pathToProcess => {
@@ -149,7 +170,7 @@ export default function bundleEnv(inputs : NetlifyPluginOptions<{
                   })
                 }
                 logDebug(`checking file-tree in backupDir`)
-                const dirInBackupDir = join(backupDirResolved, directory)
+                const dirInBackupDir = join(backupDirResolved, fileOrDirectory)
                 logDebug(`backupDir file-tree absolute path: ${dirInBackupDir}, checking if it exists`)
                 if (!existsSync(dirInBackupDir)) {
                   logDebug(`backupDir file-tree doesn't exist, creating it`)
@@ -171,7 +192,7 @@ export default function bundleEnv(inputs : NetlifyPluginOptions<{
             }
           })
         } else {
-          plugin.utils.build.failPlugin(`${directory} does not exist.`)
+          plugin.utils.build.failPlugin(`${fileOrDirectory} does not exist.`)
         }
       })
       plugin.utils.status.show({
