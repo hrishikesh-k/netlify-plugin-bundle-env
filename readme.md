@@ -73,6 +73,7 @@ The plugin can be used in plug-n-play mode without any additional configuration.
 |-------------|---------------|----------------------------------------------------------------------------|----------|-----------------|
 | backup-dir  | string        | Directory to backup the original functions in (relative to base directory) | No       | ''              |
 | debug       | boolean       | Enables verbose logging for the plugin                                     | No       | false           |
+| quiet       | boolean       | Disable all logging for the plugin                                         | No       | false           |
 | directories | Array<string> | List of directories to process (relative to base directory)                | No       | [FUNCTIONS_SRC] |
 | exclude     | Array<string> | List of variables to not process                                           | No       | []              |
 | extensions  | Array<string> | List of extensions to process                                              | No       | ["js", "ts"]    |
@@ -96,6 +97,7 @@ The options can be configured only in `netlify.toml` as follows:
   [plugins.inputs]
     backup-dir = ""
     debug = true
+    quiet  = true
     directories = []
     exclude = []
     extensions = ["js", "ts"]
