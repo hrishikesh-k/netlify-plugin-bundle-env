@@ -39,7 +39,7 @@ export default function bundleEnv(inputs : NetlifyPluginOptions<{
       readdirSync(path).forEach(newPath => {
         const absolutePath = join(path, newPath)
         logDebug(`recursiveProcess: absolutePath: ${absolutePath}, checking if directory`)
-        recursiveProcess(path, callback)
+        recursiveProcess(absolutePath, callback)
       })
     } else {
       logDebug(`${path} is a file, calling callback`)
