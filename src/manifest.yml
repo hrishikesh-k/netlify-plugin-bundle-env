@@ -27,4 +27,8 @@ inputs:
     description: List of variables to process
     name: include
     required: false
+  - default: false
+    description: Disables logging for the plugin
+    name: quiet
+    required: false
 name: netlify-plugin-bundle-env

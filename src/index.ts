@@ -85,7 +85,11 @@ export default function bundleEnv(inputs : NetlifyPluginOptions<{
       }
     },
     onPreBuild: plugin => {
-      logDebug(`resolved config:\n  - backup-dir: ${inputs['backup-dir']}\n  - debug: ${inputs.debug}\n  - directories: ${inputs.directories.join(', ')}\n  - exclude: ${inputs.exclude.join(', ')}\n  - extensions: ${inputs.extensions.join(', ')}\n  - files: ${inputs.files.join(', ')}\n  - include: ${inputs.include.join(', ')}`)
+      logDebug(`resolved config:\n  - backup-dir: ${inputs['backup-dir']}\n  - debug: ${inputs.debug}\n  - directories: ${inputs.directories.join(', ')}\n  - exclude: ${inputs.exclude.join(', ')}\n  - extensions: ${inputs.extensions.join(', ')}\n  - files: ${inputs.files.join(', ')}\n  - include: ${inputs.include.join(', ')}\n  - quiet: ${inputs.quiet}`)
+      logDebug('checking for debug/quiet conflict')
+      if (inputs.debug && inputs.quiet) {
+        logWarn('debug and quiet both are enabled, debug would be ignored')
+      }
       logDebug('checking extensions')
       inputs.extensions.forEach((extension, extensionIndex) => {
         if (extension.startsWith('.')) {

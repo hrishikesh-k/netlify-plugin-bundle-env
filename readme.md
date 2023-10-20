@@ -24,7 +24,7 @@ and run `npm i netlify-plugin-bundle-env` to make sure the plugin is added as a 
 ```json
 {
   "dependencies": {
-    "netlify-plugin-bundle-env": "0.5.0"
+    "netlify-plugin-bundle-env": "0.6.0"
   }
 }
 ```
@@ -88,20 +88,22 @@ Note:
 4. If `exclude` is specified, all variables excluding those in the list will be added to the files. If `include` is specified, only the variables included in that list will be added to the function. Using `exclude` and `include` together is not supported and can cause unexpected results.
 5. `extensions` should be specified without the dot (`.`). For example, if you wish to process `file.jsx`, you should only add `jsx` (case-sensitive). If you provide an extension here, it will override the default extensions. To include the default extensions, you need to add those to the array too.
 6. `files` should include the list of files that you wish to process. When this is provided, only the files in this list are processed. This should not be used together with `directories`. That option is ignored when using this one.
+7. `quiet` should not be used together with `debug`. If used, `quiet` will be honoured.
 
 The options can be configured only in `netlify.toml` as follows:
 
 ```toml
+# the following example uses the default values
 [[plugins]]
   package = "netlify-plugin-bundle-env"
   [plugins.inputs]
     backup-dir = ""
-    debug = true
-    quiet  = true
+    debug = false
     directories = []
     exclude = []
     extensions = ["js", "ts"]
     include = []
+    quiet  = false
 ```
 
 If, for some unexpected use-case, this plugin does not work, feel free to open an issue, only if you're able to provide a reproduction case. Not all use-cases can be accommodated, but at least they can be considered.
