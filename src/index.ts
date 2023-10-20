@@ -18,17 +18,17 @@ export default function bundleEnv(inputs : NetlifyPluginOptions<{
   const workingDir = cwd()
   let countFile = 0
   function logDebug(message : string) {
-    if (inputs.debug && inputs.quiet !== true) {
+    if (inputs.debug && !inputs.quiet) {
       console.log(chalk.blue(message))
     }
   }
   function logSuccess(message : string) {
-    if (inputs.quiet !== true) {
+    if (!inputs.quiet) {
       console.log(chalk.green(message))
     }
   }
   function logWarn(message : string) {
-    if (inputs.quiet !== true) {
+    if (!inputs.quiet) {
       console.log(chalk.yellow(message))
     }
   }
