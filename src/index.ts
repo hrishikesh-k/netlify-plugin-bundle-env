@@ -6,6 +6,7 @@ import type {NetlifyPlugin, NetlifyPluginOptions} from '@netlify/build'
 export default function bundleEnv(inputs : NetlifyPluginOptions<{
   'backup-dir' : string
   debug : boolean
+  quiet : boolean
   directories : Array<string>
   exclude : Array<string>
   extensions : Array<string>
@@ -17,15 +18,19 @@ export default function bundleEnv(inputs : NetlifyPluginOptions<{
   const workingDir = cwd()
   let countFile = 0
   function logDebug(message : string) {
-    if (inputs.debug) {
+    if (inputs.debug && !inputs.quiet) {
       console.log(chalk.blue(message))
     }
   }
   function logSuccess(message : string) {
-    console.log(chalk.green(message))
+    if (!inputs.quiet) {
+      console.log(chalk.green(message))
+    }
   }
   function logWarn(message : string) {
-    console.log(chalk.yellow(message))
+    if (!inputs.quiet) {
+      console.log(chalk.yellow(message))
+    }
   }
   function recursiveProcess(path : string, callback : (pathToProcess : string) => void) {
     logDebug(`recursiveProcess: checking ${path}`)

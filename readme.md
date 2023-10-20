@@ -78,6 +78,7 @@ The plugin can be used in plug-n-play mode without any additional configuration.
 | extensions  | Array<string> | List of extensions to process                                              | No       | ["js", "ts"]    |
 | files       | Array<string> | List of files to process (relative to base directory)                      | No       | []              |
 | include     | Array<string> | List of variables to process                                               | No       | []              |
+| quiet       | boolean       | Disable all logging for the plugin                                         | No       | false           |
 
 Note:
 
@@ -96,6 +97,7 @@ The options can be configured only in `netlify.toml` as follows:
   [plugins.inputs]
     backup-dir = ""
     debug = true
+    quiet  = true
     directories = []
     exclude = []
     extensions = ["js", "ts"]
