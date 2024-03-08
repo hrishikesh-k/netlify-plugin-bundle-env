@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.6.1
+### Updated
+- All dependencies without breaking changes.
+
 ## v0.6.0
 ### Changed
  - Added configuration option: `quiet`. Refer to readme to know how to use it. credits: @stefanosala, PR: https://github.com/Hrishikesh-K/netlify-plugin-bundle-env/pull/4

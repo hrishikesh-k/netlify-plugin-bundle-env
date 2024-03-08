@@ -24,7 +24,7 @@ and run `npm i netlify-plugin-bundle-env` to make sure the plugin is added as a 
 ```json
 {
   "dependencies": {
-    "netlify-plugin-bundle-env": "0.6.0"
+    "netlify-plugin-bundle-env": "0.6.1"
   }
 }
 ```
@@ -61,7 +61,7 @@ function getKey(key) {
 
 You can mix and match these ways of using environment variables across your project.
 
-Note that, the plugin is only really useful when you use the scoped environment variables feature. If you do not, all variables from the UI are published to AWS Lambda, thus rendering this plugin useless.
+Note that, the plugin is only really useful when you use the scoped environment variables feature. If you do not, all variables from the UI are published to AWS Lambda, thus rendering this plugin useless. Thus, the variables processed by this plugin should be scoped to builds.
 
 When building locally, the plugin takes care of restoring the original files after deploying.
 
