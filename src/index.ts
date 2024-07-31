@@ -158,7 +158,7 @@ export default function bundleEnv(inputs : NetlifyPluginOptions<{
                     processedVars.push(varName)
                   }
                   logDebug(`writing ${varName} to file`)
-                  return `process.env['${varName}'] = '${env[varName]}'`
+                  return `process.env[${JSON.stringify(String(varName))}] = ${JSON.stringify(String(env[varName]))}`
                 } else {
                   if (!env[varName]) {
                     logWarn(`skipping ${varName} because its value is undefined`)
