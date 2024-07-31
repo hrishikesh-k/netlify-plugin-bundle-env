@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.6.2
+### Fixed
+- Escape variable names and values. credits: @Cykelero, PR: https://github.com/hrishikesh-k/netlify-plugin-bundle-env/pull/7
+
+### Updated
+- All dependencies without breaking changes.
+
 ## v0.6.1
 ### Updated
 - All dependencies without breaking changes.

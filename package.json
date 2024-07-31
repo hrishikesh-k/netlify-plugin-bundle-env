@@ -13,10 +13,10 @@
   },
   "description": "A Netlify Build Plugin to inject environment variables in Netlify Functions during Netlify Builds.",
   "devDependencies": {
-    "@netlify/build": "29.23.3",
-    "@types/node": "20.11.25",
-    "netlify-cli": "17.18.1",
-    "typescript": "5.4.2"
+    "@netlify/build": "29.51.4",
+    "@types/node": "22.0.0",
+    "netlify-cli": "17.33.5",
+    "typescript": "5.5.4"
   },
   "engines": {
     "node": ">=16"
@@ -43,5 +43,5 @@
     "build": "tsc && cp ./src/manifest.yml ./dist/manifest.yml"
   },
   "type": "module",
-  "version": "0.6.1"
+  "version": "0.6.2"
 }
