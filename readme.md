@@ -1,6 +1,6 @@
 ## Netlify Plugin Bundle ENV
 
-A Netlify Build Plugin to inject environment variables in Netlify Functions (or server-side code) during Netlify Builds.
+A Netlify Build Plugin to inject environment variables in Netlify (Edge) Functions (or server-side code) during Netlify Builds.
 
 ### Motivation:
 
@@ -8,7 +8,7 @@ Netlify uses AWS Lambda for Netlify Functions. Few frameworks use Netlify Functi
 
 ### Working:
 
-This build plugin scans all the files (extensions can be modified) in user-configured directories. It prepends all the variables as `process.env['VAR_NAME'] = value` at the top of each file. Thus, when accessing them in the files, the variables will always exist.
+This build plugin scans all the files (extensions can be modified) in user-configured directories. It prepends all the variables as `process.env['VAR_NAME']=value;` at the top of each file. Thus, when accessing them in the files, the variables will always exist.
 
 ### Installation:
 
@@ -24,7 +24,7 @@ and run `npm i netlify-plugin-bundle-env` to make sure the plugin is added as a 
 ```json
 {
   "dependencies": {
-    "netlify-plugin-bundle-env": "0.6.2"
+    "netlify-plugin-bundle-env": "0.7.0"
   }
 }
 ```
@@ -69,24 +69,24 @@ When building locally, the plugin takes care of restoring the original files aft
 
 The plugin can be used in plug-n-play mode without any additional configuration. However, there are a few options that you can use to customise the plugin's default behaviour:
 
-| Name        | Type          | Description                                                                | Required | Default         |
-|-------------|---------------|----------------------------------------------------------------------------|----------|-----------------|
-| backup-dir  | string        | Directory to backup the original functions in (relative to base directory) | No       | ''              |
-| debug       | boolean       | Enables verbose logging for the plugin                                     | No       | false           |
-| directories | Array<string> | List of directories to process (relative to base directory)                | No       | [FUNCTIONS_SRC] |
-| exclude     | Array<string> | List of variables to not process                                           | No       | []              |
-| extensions  | Array<string> | List of extensions to process                                              | No       | ["js", "ts"]    |
-| files       | Array<string> | List of files to process (relative to base directory)                      | No       | []              |
-| include     | Array<string> | List of variables to process                                               | No       | []              |
-| quiet       | boolean       | Disable all logging for the plugin                                         | No       | false           |
+| Name        | Type          | Description                                                                | Required | Default                             |
+|-------------|---------------|----------------------------------------------------------------------------|----------|-------------------------------------|
+| backup-dir  | string        | Directory to backup the original functions in (relative to base directory) | No       | ''                                  |
+| debug       | boolean       | Enables verbose logging for the plugin                                     | No       | false                               |
+| directories | Array<string> | List of directories to process (relative to base directory)                | No       | [EDGE_FUNCTIONS_SRC, FUNCTIONS_SRC] |
+| exclude     | Array<string> | List of variables to not process                                           | No       | []                                  |
+| extensions  | Array<string> | List of extensions to process                                              | No       | ["js", "ts"]                        |
+| files       | Array<string> | List of files to process (relative to base directory)                      | No       | []                                  |
+| include     | Array<string> | List of variables to process                                               | No       | []                                  |
+| quiet       | boolean       | Disable all logging for the plugin                                         | No       | false                               |
 
 Note:
 
 1. `backup-dir` when set to `''` (default) backs up the original functions alongside the actual function file. The file is saved as `<file-name>.<ext>.bak`. You might need to override this in case you are including all files from your functions folder and bundling these `.bak` files is causing some issues. The directory, if specified, is created for you. Note that, this directory is deleted after processing, so it's better to use a directory which is not required by your application otherwise.
 2. `directories` should only include the "start" directory. Any subdirectories will be automatically included. Thus, glob patterns are not supported. If you provide a directory here, it will override the default directory. To include the default directory, you need to add that to the array too. Unlike `exclude` and `include`, an empty array for this will automatically use the functions' directory of the site. This should not be used together with `files`.
 3. Both `exclude` and `include` should contain only the name of the variable. For example, if you wish to add `process.env.VAR_1` in the list, you should only add `VAR_1` (case-sensitive).
-4. If `exclude` is specified, all variables excluding those in the list will be added to the files. If `include` is specified, only the variables included in that list will be added to the function. Using `exclude` and `include` together is not supported and can cause unexpected results.
-5. `extensions` should be specified without the dot (`.`). For example, if you wish to process `file.jsx`, you should only add `jsx` (case-sensitive). If you provide an extension here, it will override the default extensions. To include the default extensions, you need to add those to the array too.
+4. If `exclude` is specified, all variables excluding those in the list will be added to the files. If `include` is specified, only the variables included in that list will be added to the function. Using `exclude` and `include` together is not supported `exclude` will be preferred.
+5. `extensions` should be specified without the dot (`.`). For example, if you wish to process `file.jsx`, you should only add `jsx` (case-sensitive). If you provide an extension here, it will override the default extensions. To include the default extensions, you need to add those to the array too. While any extension is supported, it might not work well for framework specific files like `.astro` or `.svelte` or any others. This is because the plugin adds `process.env` to the top of the file, which might not be compatible with the framework, especially as these files could be used in browsers as well.
 6. `files` should include the list of files that you wish to process. When this is provided, only the files in this list are processed. This should not be used together with `directories`. That option is ignored when using this one.
 7. `quiet` should not be used together with `debug`. If used, `quiet` will be honoured.
 

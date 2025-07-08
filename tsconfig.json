@@ -1,16 +1,16 @@
 {
   "compilerOptions": {
     "allowJs": false,
-    "allowUnusedLabels": false,
     "allowSyntheticDefaultImports": true,
+    "allowUnusedLabels": false,
     "isolatedModules": true,
     "lib": [
       "ESNext"
     ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "noUnusedParameters": true,
     "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "outDir": "./dist/",
     "skipLibCheck": true,
     "strict": true,

@@ -9,19 +9,20 @@
     "url": "https://www.github.com/hrishikesh-k/netlify-plugin-bundle-env/issues"
   },
   "dependencies": {
-    "chalk": "5.3.0"
+    "chalk": "5.4.1"
   },
   "description": "A Netlify Build Plugin to inject environment variables in Netlify Functions during Netlify Builds.",
   "devDependencies": {
-    "@netlify/build": "29.51.4",
-    "@types/node": "22.0.0",
-    "netlify-cli": "17.33.5",
-    "typescript": "5.5.4"
-  },
-  "engines": {
-    "node": ">=16"
+    "@biomejs/biome": "2.1.1",
+    "@netlify/build": "34.0.0",
+    "@types/node": "24.0.10",
+    "netlify-cli": "22.2.2",
+    "typescript": "5.8.3"
   },
   "engineStrict": true,
+  "engines": {
+    "node": ">=18"
+  },
   "files": [
     "./dist/"
   ],
@@ -35,13 +36,16 @@
   "license": "MIT",
   "main": "./dist/index.js",
   "name": "netlify-plugin-bundle-env",
+  "packageManager": "npm@11.4.2",
   "repository": {
     "type": "git",
     "url": "https://www.github.com/hrishikesh-k/netlify-plugin-bundle-env.git"
   },
   "scripts": {
-    "build": "tsc && cp ./src/manifest.yml ./dist/manifest.yml"
+    "build": "cp ./src/manifest.yml ./dist/manifest.yml",
+    "lint": "biome check",
+    "typecheck": "tsc"
   },
   "type": "module",
-  "version": "0.6.2"
+  "version": "0.7.0"
 }

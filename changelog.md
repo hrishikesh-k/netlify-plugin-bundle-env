@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.7.0
+
+### Fixed
+- `directories` config was being ignored. Issue: https://github.com/hrishikesh-k/netlify-plugin-bundle-env/issues/8
+
+### Updated
+
+- Drop support for Node.js version less than 18.0.0.
+- Marginally improved code quality and introduced a linter.
+
 ## v0.6.2
 ### Fixed
 - Escape variable names and values. credits: @Cykelero, PR: https://github.com/hrishikesh-k/netlify-plugin-bundle-env/pull/7

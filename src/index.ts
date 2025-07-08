@@ -1,213 +1,274 @@
-import {basename, extname, join} from 'node:path'
+import {
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
+import { basename, extname, join } from 'node:path'
+import { cwd, env } from 'node:process'
+import type { NetlifyPlugin, NetlifyPluginOptions, OnPreBuild } from '@netlify/build'
 import chalk from 'chalk'
-import {copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
-import {cwd, env} from 'node:process'
-import type {NetlifyPlugin, NetlifyPluginOptions} from '@netlify/build'
-export default function bundleEnv(inputs : NetlifyPluginOptions<{
-  'backup-dir' : string
-  debug : boolean
-  quiet : boolean
-  directories : Array<string>
-  exclude : Array<string>
-  extensions : Array<string>
-  files : Array<string>
-  include : Array<string>
-}>['inputs']) : NetlifyPlugin {
-  const filesOrDirs : Array<string> = []
-  const processedVars : Array<string> = []
-  const workingDir = cwd()
-  let countFile = 0
-  function logDebug(message : string) {
-    if (inputs.debug && !inputs.quiet) {
-      console.log(chalk.blue(message))
+
+type PInputs = NetlifyPluginOptions<{
+  'backup-dir': string
+  debug: boolean
+  directories: string[]
+  exclude: string[]
+  extensions: string[]
+  files: string[]
+  include: string[]
+  quiet: boolean
+}>['inputs']
+
+class PLogger {
+  constructor(private readonly d: PInputs['debug'], private readonly q: PInputs['quiet']) {}
+
+  debug(m: string) {
+    if (this.d && !this.q) {
+      console.log(chalk.blue(m))
     }
   }
-  function logSuccess(message : string) {
-    if (!inputs.quiet) {
-      console.log(chalk.green(message))
+
+  success(m: string) {
+    if (!this.q) {
+      console.log(chalk.green(m))
     }
   }
-  function logWarn(message : string) {
-    if (!inputs.quiet) {
-      console.log(chalk.yellow(message))
+
+  warn(m: string) {
+    if (!this.q) {
+      console.log(chalk.yellow(m))
     }
   }
-  function recursiveProcess(path : string, callback : (pathToProcess : string) => void) {
-    logDebug(`recursiveProcess: checking ${path}`)
-    if (lstatSync(path).isDirectory()) {
-      logDebug(`${path} is a directory, performing recursive call`)
-      readdirSync(path).forEach(newPath => {
-        const absolutePath = join(path, newPath)
-        logDebug(`recursiveProcess: absolutePath: ${absolutePath}, checking if directory`)
-        recursiveProcess(absolutePath, callback)
-      })
+}
+
+function pVar(i: PInputs, l: PLogger, v: string) {
+  l.debug(`validating if ${v} should be processed`)
+  if (i.exclude.includes(v)) {
+    l.warn(`${v} will not be replaced because it is in the exclude list`)
+    return false
+  }
+
+  if (i.include.length) {
+    if (i.include.includes(v)) {
+      return true
     } else {
-      logDebug(`${path} is a file, calling callback`)
-      callback(path)
+      l.warn(`${v} will not be replaced because it is not in the include list`)
+      return false
     }
   }
+
+  return true
+}
+
+function rp(l: PLogger, p: string, c: (pathToProcess: string) => void) {
+  l.debug(`rp: checking ${p}`)
+  if (!lstatSync(p).isDirectory()) {
+    l.debug(`${p} is a file, calling callback`)
+    c(p)
+    return
+  }
+
+  l.debug(`${p} is a directory, performing recursive call`)
+  for (const np of readdirSync(p)) {
+    const absP = join(p, np)
+    l.debug(`rp: absolutePath: ${absP}, checking if directory`)
+    rp(l, absP, c)
+  }
+}
+
+function valI(i: PInputs, l: PLogger, p: Parameters<OnPreBuild>[0]) {
+  const paths: Set<string> = new Set()
+
+  l.debug('checking for debug/quiet conflict')
+  if (i.debug && i.quiet) {
+    l.warn('debug and quiet both are enabled, debug would be ignored')
+  }
+
+  l.debug('checking extensions')
+  for (const [extIndex, ext] of i.extensions.entries()) {
+    if (ext.startsWith('.')) {
+      l.warn(`${ext} should not start with '.', processing would continue without the dot`)
+      i.extensions[extIndex] = ext.slice(1)
+    }
+  }
+
+  l.debug('checking for excluded/included conflict')
+  for (const exEnv of i.exclude) {
+    if (i.include.includes(exEnv)) {
+      l.warn(`${exEnv} exists in include as well as exclude list, exclude would take preference`)
+    }
+  }
+
+  l.debug('checking for directories/files conflict')
+
+  if (i.directories.length && i.files.length) {
+    l.warn('directories and files, both are provided - directories will be ignored')
+    for (const file of i.files) {
+      paths.add(file)
+    }
+    return paths
+  }
+
+  if (i.files.length) {
+    l.warn('files is provided, Netlify (Edge) Functions would not be automatically processed')
+    for (const file of i.files) {
+      paths.add(file)
+    }
+    return paths
+  }
+
+  if (i.directories.length) {
+    l.warn('directories is provided, Netlify (Edge) Functions would not be automatically processed')
+    for (const dir of i.directories) {
+      paths.add(dir)
+    }
+    return paths
+  }
+
+  l.debug('directories and files not provided, adding Netlify (Edge) Functions src to directories')
+  if (p.constants.EDGE_FUNCTIONS_SRC && p.constants.FUNCTIONS_SRC) {
+    paths.add(p.constants.EDGE_FUNCTIONS_SRC)
+    paths.add(p.constants.FUNCTIONS_SRC)
+    return paths
+  } else {
+    p.utils.build.failPlugin('No source directory is specified')
+    return paths
+  }
+}
+
+export default function (i: PInputs): NetlifyPlugin {
+
+  const l = new PLogger(i.debug, i.quiet)
+  const dVar = new Set()
+  const wDir = cwd()
+  let cf = 0
+  let paths: Set<string>
+
   return {
-    onEnd: () => {
-      if (inputs['backup-dir'].length) {
-        const backupDirAbsolute = join(workingDir, inputs['backup-dir'])
-        recursiveProcess(backupDirAbsolute, pathToProcess => {
-          if (extname(pathToProcess) === '.path') {
-            logDebug(`restoring backup from ${pathToProcess}`)
-            copyFileSync(pathToProcess.slice(0, -5), readFileSync(pathToProcess, 'utf-8'))
+    onEnd() {
+      if (i['backup-dir'].length) {
+        const bDir = join(wDir, i['backup-dir'])
+        rp(l, bDir, (p) => {
+          if (extname(p) === '.path') {
+            l.debug(`restoring backup from ${p}`)
+            copyFileSync(p.slice(0, -5), readFileSync(p, 'utf-8'))
           }
         })
-        logDebug(`deleting ${backupDirAbsolute}`)
-        rmSync(backupDirAbsolute, {
+
+        l.debug(`deleting ${bDir}`)
+        rmSync(bDir, {
           recursive: true
         })
-        logSuccess('Backup successfully processed and files have been restored.')
+        l.success('backup successfully processed and files have been restored')
       } else {
-        filesOrDirs.forEach(fileOrDirectory => {
-          logDebug(`processing ${fileOrDirectory}`)
-          recursiveProcess(join(workingDir, fileOrDirectory), pathToProcess => {
-            if (inputs.files.length && inputs.extensions.includes(extname(pathToProcess).slice(1))) {
-              const backupFile = `${pathToProcess}.bak`
-              logDebug(`restoring backup from ${backupFile}`)
-              writeFileSync(pathToProcess, readFileSync(backupFile, 'utf-8'))
-              logDebug(`deleting ${backupFile}`)
-              rmSync(backupFile)
-              logSuccess(`${pathToProcess} successfully processed and restored.`)
-            } else if (extname(pathToProcess) === '.bak') {
-              logDebug(`restoring backup from ${pathToProcess}`)
-              const originalName = pathToProcess.slice(0, -4)
-              writeFileSync(originalName, readFileSync(pathToProcess, 'utf-8'))
-              logDebug(`deleting ${pathToProcess}`)
-              rmSync(pathToProcess)
-              logSuccess(`${originalName} successfully processed and restored.`)
+        for (const p of paths) {
+          l.debug(`processing ${p}`)
+          rp(l, join(wDir, p), (pa) => {
+            if (extname(pa) === '.bak') {
+              l.debug(`restoring backup from ${pa}`)
+              const oName = pa.slice(0, -4)
+              writeFileSync(oName, readFileSync(oName, 'utf-8'))
+
+              l.debug(`deleting ${pa}`)
+              rmSync(pa)
+              l.success(`${oName} successfully processed and restored`)
             }
           })
-        })
+        }
       }
     },
-    onPreBuild: plugin => {
-      logDebug(`resolved config:\n  - backup-dir: ${inputs['backup-dir']}\n  - debug: ${inputs.debug}\n  - directories: ${inputs.directories.join(', ')}\n  - exclude: ${inputs.exclude.join(', ')}\n  - extensions: ${inputs.extensions.join(', ')}\n  - files: ${inputs.files.join(', ')}\n  - include: ${inputs.include.join(', ')}\n  - quiet: ${inputs.quiet}`)
-      logDebug('checking for debug/quiet conflict')
-      if (inputs.debug && inputs.quiet) {
-        logWarn('debug and quiet both are enabled, debug would be ignored')
-      }
-      logDebug('checking extensions')
-      inputs.extensions.forEach((extension, extensionIndex) => {
-        if (extension.startsWith('.')) {
-          logWarn(`${extension} should not start with '.'. The plugin will remove the '.' and continue processing.`)
-          inputs.extensions[extensionIndex] = extension.slice(1)
+    onPreBuild(pl) {
+      l.debug(`resolved config:\n  - backup-dir: ${i['backup-dir']}\n  - debug: ${i.debug}\n  - directories: ${i.directories.join(', ')}\n  - exclude: ${i.exclude.join(', ')}\n  - extensions: ${i.extensions.join(', ')}\n  - files: ${i.files.join(', ')}\n  - include: ${i.include.join(', ')}\n  - quiet: ${i.quiet}`)
+
+      paths = valI(i, l, pl)
+
+      for (const p of paths) {
+        l.debug(`processing: ${p}`)
+        const absP = join(wDir, p)
+
+        l.debug(`absolute path: ${absP}, checking its existence`)
+        if (!existsSync(absP)) {
+          pl.utils.build.failPlugin(`${p} does not exist`)
+          continue
         }
-      })
-      logDebug('checking for excluded/included conflict')
-      inputs.exclude.forEach(excludedEnv => {
-        if (inputs.include.includes(excludedEnv)) {
-          logWarn(`${excludedEnv} exists in include as well as exclude list. This is not supported and can produce unexpected results.`)
-        }
-      })
-      logDebug('checking for directories/files conflict')
-      if (inputs.directories.length && inputs.files.length) {
-        logWarn('directories and files, both are provided, the former will be ignored')
-        inputs.files.forEach(file => {
-          filesOrDirs.push(file)
-        })
-      } else if (inputs.files.length) {
-        logWarn('files is provided, Netlify Functions would not be automatically processed')
-        inputs.files.forEach(file => {
-          filesOrDirs.push(file)
-        })
-      } else {
-        logDebug('directories and files not provided, adding functions src to directories')
-        if (plugin.constants.FUNCTIONS_SRC) {
-          filesOrDirs.push(plugin.constants.FUNCTIONS_SRC)
-        } else {
-          plugin.utils.build.failPlugin('No source directory is specified.')
-        }
-      }
-      filesOrDirs.forEach(fileOrDirectory => {
-        logDebug(`processing: ${fileOrDirectory}`)
-        const absolutePath = join(workingDir, fileOrDirectory)
-        logDebug(`absolute path: ${absolutePath}, checking its existence`)
-        if (existsSync(absolutePath)) {
-          logDebug(`${absolutePath} found`)
-          recursiveProcess(absolutePath, pathToProcess => {
-            logDebug(`checking if ${pathToProcess} has an included extension`)
-            if (inputs.extensions.includes(extname(pathToProcess).slice(1))) {
-              logDebug(`${pathToProcess} has an included extension`)
-              countFile++
-              function processVariable(varName : string) {
-                logDebug(`validating if ${varName} should be processed`)
-                if (inputs.exclude.includes(varName)) {
-                  logWarn(`${varName} will not be replaced because it is in the exclude list.`)
-                  return false
-                } else if (inputs.include.length) {
-                    if (inputs.include.includes(varName)) {
-                      return true
-                    } else {
-                      logWarn(`${varName} will not be replaced because it is in not in the include list.`)
-                      return false
-                    }
-                  } else {
-                  return true
-                }
-              }
-              logDebug(`reading ${pathToProcess}`)
-              const originalCode = readFileSync(pathToProcess, 'utf-8').trim()
-              writeFileSync(pathToProcess, `${Object.keys(env).map(varName => {
-                if (processVariable(varName)) {
-                  if (!processedVars.includes(varName)) {
-                    logDebug(`adding ${varName} to processedVars`)
-                    processedVars.push(varName)
-                  }
-                  logDebug(`writing ${varName} to file`)
-                  return `process.env[${JSON.stringify(String(varName))}] = ${JSON.stringify(String(env[varName]))}`
-                } else {
-                  if (!env[varName]) {
-                    logWarn(`skipping ${varName} because its value is undefined`)
-                  }
-                  return false
-                }
-              }).filter(mappedVarName => {
-                return mappedVarName
-              }).join(';')};\n${originalCode}`)
-              if (inputs['backup-dir'].length) {
-                logDebug('backup-dir provided')
-                const backupDirResolved = join(workingDir, inputs['backup-dir'])
-                logDebug(`backupDir absolute path: ${backupDirResolved}, checking if it exists`)
-                if (!existsSync(backupDirResolved)) {
-                  logDebug('backupDir doesn\'t exist, creating it')
-                  mkdirSync(backupDirResolved, {
-                    recursive: true
-                  })
-                }
-                logDebug(`checking file-tree in backupDir`)
-                const dirInBackupDir = join(backupDirResolved, fileOrDirectory)
-                logDebug(`backupDir file-tree absolute path: ${dirInBackupDir}, checking if it exists`)
-                if (!existsSync(dirInBackupDir)) {
-                  logDebug(`backupDir file-tree doesn't exist, creating it`)
-                  mkdirSync(dirInBackupDir, {
-                    recursive: true
-                  })
-                }
-                const fileInBackupDir = join(dirInBackupDir, basename(pathToProcess))
-                logDebug(`writing ${pathToProcess} in backupDir at: ${fileInBackupDir}`)
-                writeFileSync(fileInBackupDir, originalCode)
-                logDebug(`writing ${fileInBackupDir}'s original path`)
-                writeFileSync(`${fileInBackupDir}.path`, pathToProcess)
-              } else {
-                logDebug('no backup-dir provided, backing up along-side original file')
-                writeFileSync(`${pathToProcess}.bak`, originalCode)
-              }
-            } else {
-              logWarn(`Skipping ${basename(pathToProcess)} because its extension is not listed in plugin's "extensions" options.`)
+
+        l.debug(`${p} exists`)
+        rp(l, absP, (pa) => {
+          l.debug(`checking if ${pa} has an included extension`)
+          if (!i.extensions.includes(extname(pa).slice(1))) {
+            l.warn(`skipping ${basename(pa)} because its extension is not listed in \`extensions\` options`)
+            return
+          }
+
+          l.debug(`${pa} has an included extension`)
+          cf++
+
+          l.debug(`reading ${pa}`)
+          const oc = readFileSync(pa, 'utf-8').trim()
+          let nc = `${oc}`
+
+          for (const e of Object.keys(env)) {
+            if (!env[e]) {
+              l.warn(`skipping ${e} because its value is undefined`)
+              continue
             }
-          })
-        } else {
-          plugin.utils.build.failPlugin(`${fileOrDirectory} does not exist.`)
-        }
-      })
-      plugin.utils.status.show({
-        summary: `Successfully processed ${countFile} file(s) containing ${processedVars.length} variable(s)`,
-        title: 'Netlify Plugin Bundle ENV'
-      })
+
+            if (pVar(i, l, e)) {
+              if (!dVar.has(e)) {
+                l.debug(`adding ${e} to dVar`)
+                dVar.add(e)
+              }
+
+              l.debug(`appending ${e} to file`)
+              nc = `process.env[${JSON.stringify(e)}]=${JSON.stringify(env[e])};\n${nc}`
+            }
+          }
+
+          writeFileSync(pa, nc)
+
+          if (!i["backup-dir"].length) {
+            l.debug('no backup-dir provided, backing up along-side original file')
+            writeFileSync(`${pa}.bak`, oc)
+            return
+          }
+
+          l.debug('backup-dir provided')
+          const bDir = join(wDir, i['backup-dir'])
+
+          l.debug(`backup-dir absolute path: ${bDir}, checking if it exists`)
+          if (!existsSync(bDir)) {
+            l.debug('backup-dir doesn\'t exist, creating it')
+            mkdirSync(bDir, {
+              recursive: true
+            })
+          }
+
+          l.debug('checking file-tree in backup-dir')
+          const dBack = join(bDir, pa)
+
+          l.debug(`backup-dir file-tree absolute path: ${dBack}, checking if it exists`)
+          if (!existsSync(dBack)) {
+            l.debug(`backupDir file-tree doesn't exist, creating it`)
+            mkdirSync(dBack, {
+              recursive: true
+            })
+          }
+
+          const fBack = join(dBack, basename(pa))
+          l.debug(`writing ${pa} in backup-dir at: ${fBack}`)
+          writeFileSync(fBack, oc)
+        })
+
+        pl.utils.status.show({
+          summary: `Successfully processed ${cf} file(s) containing ${dVar.size} variable(s)`,
+          title: 'Netlify Plugin Bundle ENV'
+        })
+      }
     }
   }
 }
