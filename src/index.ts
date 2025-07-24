@@ -211,6 +211,13 @@ export default function (i: PInputs): NetlifyPlugin {
           l.debug(`reading ${pa}`)
           const oc = readFileSync(pa, 'utf-8').trim()
           let nc = `${oc}`
+          let sb = ''
+
+          if (nc.startsWith('#!')) {
+            l.debug(`removing shebang from ${pa}, it will be restored later`)
+            sb = nc.slice(0, nc.indexOf('\n') + 1)
+            nc = nc.slice(sb.length).trim()
+          }
 
           for (const e of Object.keys(env)) {
             if (!env[e]) {
@@ -229,7 +236,7 @@ export default function (i: PInputs): NetlifyPlugin {
             }
           }
 
-          writeFileSync(pa, nc)
+          writeFileSync(pa, `${sb}\n${nc}`)
 
           if (!i["backup-dir"].length) {
             l.debug('no backup-dir provided, backing up along-side original file')

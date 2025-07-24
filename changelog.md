@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.7.1
+
+### Fixed:
+- Allow having shebang files. Issue: https://github.com/hrishikesh-k/netlify-plugin-bundle-env/issues/9
+
+### Updated
+- All dependencies without breaking changes.
+
 ## v0.7.0
 
 ### Fixed
