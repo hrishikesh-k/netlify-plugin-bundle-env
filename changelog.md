@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.7.2
+
+### Updated
+- All dependencies without breaking changes.
+
 ## v0.7.1
 
 ### Fixed:
